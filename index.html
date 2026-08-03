@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>危険物乙2トレーニング</title>
+<style>
+  body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:820px;margin:30px auto;padding:16px;line-height:1.65;background:#f6f7f9;color:#222}
+  h1{font-size:1.8rem}
+  .card{background:#fff;border:1px solid #d8dce2;border-radius:12px;padding:22px;margin-top:18px;box-shadow:0 3px 12px rgba(0,0,0,.05)}
+  .hidden{display:none!important}
+  button,select{font:inherit;padding:10px 16px;margin:6px 4px;cursor:pointer}
+  .choice{display:block;width:100%;text-align:left;margin:9px 0}
+  .result-title{font-size:1.25rem;font-weight:700}
+  .review-item{padding:9px 4px;border-bottom:1px solid #eee}
+  .status{min-height:1.7em;font-weight:700}
+  .detail{background:#f2f5f8;border-radius:8px;padding:12px;margin:10px 0}
+  .key-help{font-size:.92rem;color:#555}
+  .danger{border-color:#b33}
+</style>
+</head>
+<body>
+<h1>危険物乙2トレーニング</h1>
+
+<section id="startScreen" class="card">
+  <h2>スタート</h2>
+  <label>出題数
+    <select id="questionCount">
+      <option value="10" selected>10問</option>
+      <option value="20">20問</option>
+      <option value="50">50問</option>
+    </select>
+  </label>
+  <div>
+    <button id="startButton" type="button">開始（Enter）</button>
+    <button id="openReviewButton" type="button">復習候補を見る</button>
+  </div>
+  <p class="key-help">Enter：開始</p>
+</section>
+
+<section id="quizScreen" class="card hidden">
+  <h2 id="progress"></h2>
+  <p id="questionText"></p>
+  <div id="choices"></div>
+  <button id="unknownButton" type="button">わからない（W）</button>
+  <button id="quitButton" type="button">途中終了（トップへ戻る）</button>
+  <p class="key-help">1〜4：回答 / W：わからない</p>
+</section>
+
+<section id="resultScreen" class="card hidden">
+  <div id="resultTitle" class="result-title"></div>
+  <p id="answerInfo"></p>
+  <p id="explanation"></p>
+  <button id="detailButton" type="button">詳しい説明（E）</button>
+  <div id="detailBox" class="detail hidden"></div>
+  <p id="categoryInfo"></p>
+  <button id="bookmarkButton" type="button">あとで復習（R）</button>
+  <button id="nextButton" type="button">次の問題へ（Enter）</button>
+  <p id="bookmarkStatus" class="status" aria-live="polite"></p>
+  <p class="key-help">Enter：次へ / R：あとで復習 / E：詳しい説明</p>
+</section>
+
+<section id="reviewScreen" class="card hidden">
+  <h2>復習候補</h2>
+  <p id="reviewCount"></p>
+  <p id="reviewStatus" class="status" aria-live="polite">デバッグ表示：削除操作の結果がここに出ます。</p>
+  <div id="reviewList"></div>
+  <div>
+    <button id="selectAllButton" type="button">全選択</button>
+    <button id="clearAllChecksButton" type="button">全解除</button>
+  </div>
+  <div>
+    <button id="startReviewButton" type="button">選択した問題を復習</button>
+    <button id="deleteSelectedButton" type="button" onclick="deleteSelected()">選択削除</button>
+  </div>
+  <div>
+    <button id="deleteAllButton" class="danger" type="button" onclick="deleteAll()">すべて削除</button>
+    <button id="reviewTopButton" type="button">トップへ戻る</button>
+  </div>
+</section>
+
+<script>
+"use strict";
+
+const questions = [
+ {id:"001",category:"燃焼生成物",tag:"硫黄",question:"硫黄が燃焼すると主に発生する物質はどれか。",choices:["酸素","二酸化硫黄","水素","窒素"],answer:1,explanation:"硫黄は燃焼すると二酸化硫黄（SO₂）を発生します。",detail:"硫黄は第2類の可燃性固体です。燃焼時に生じる二酸化硫黄は刺激臭を持つ有害な気体なので、燃焼生成物として確実に覚えます。"},
+ {id:"002",category:"消火方法",tag:"マグネシウム",question:"マグネシウム火災の消火方法として適切なものはどれか。",choices:["水をかける","乾燥砂を使用する","泡消火剤を使用する","放置する"],answer:1,explanation:"マグネシウム火災では乾燥砂などを用います。",detail:"燃焼中のマグネシウムに水を用いると危険が増すおそれがあります。一般的な水系消火ではなく、乾燥砂などで覆って消火する点が重要です。"},
+ {id:"003",category:"危険物分類",tag:"第2類危険物",question:"第2類危険物の特徴として正しいものはどれか。",choices:["酸化性固体である","可燃性固体である","引火性液体である","自己反応性物質である"],answer:1,explanation:"第2類危険物は可燃性固体です。",detail:"第1類は酸化性固体、第2類は可燃性固体、第4類は引火性液体です。類ごとの基本分類を混同しないことが大切です。"},
+ {id:"004",category:"消火方法",tag:"金属粉",question:"金属粉による火災で特に注意すべきことはどれか。",choices:["必ず水で冷却する","燃焼を継続させる","水との反応に注意する","必ず泡消火剤を使う"],answer:2,explanation:"金属粉は水と反応するものがあるため注意が必要です。",detail:"金属粉火災では物質ごとの性質確認が必要です。水との反応や高温による危険を考え、適切な消火方法を選びます。"},
+ {id:"005",category:"性質",tag:"赤りん",question:"赤りんの性質として正しいものはどれか。",choices:["可燃性固体である","常温で液体である","不燃物である","気体である"],answer:0,explanation:"赤りんは第2類危険物の可燃性固体です。",detail:"赤りんは黄りんとは性質や分類が異なります。乙2では赤りんを可燃性固体として整理して覚えます。"},
+ {id:"006",category:"性質",tag:"鉄粉",question:"鉄粉の危険性として正しいものはどれか。",choices:["細かい状態では燃焼することがある","常に水中で発火する","毒性液体である","不燃性である"],answer:0,explanation:"鉄粉は細かい状態では燃焼しやすくなります。",detail:"同じ物質でも粒子が細かいほど表面積が大きくなり、酸素と接触しやすくなるため燃焼性が高まります。"},
+ {id:"007",category:"危険物分類",tag:"硫化りん",question:"硫化りんは何類の危険物か。",choices:["第1類","第2類","第3類","第4類"],answer:1,explanation:"硫化りんは第2類危険物です。",detail:"硫化りんは可燃性固体として第2類に分類されます。硫黄・赤りん・硫化りんなどをまとめて整理すると覚えやすくなります。"},
+ {id:"008",category:"指定数量",tag:"指定数量",question:"危険物の指定数量が設けられている主な目的として適切なものはどれか。",choices:["規制の基準となる数量を定めるため","色を決めるため","販売価格を決めるため","製造方法を統一するため"],answer:0,explanation:"指定数量は危険物規制の基準となる数量です。",detail:"指定数量の倍数は、貯蔵・取扱いに関する規制判断で用いられます。品名ごとの数量を覚えるだけでなく、倍数計算も重要です。"},
+ {id:"009",category:"消火方法",tag:"消火",question:"第2類危険物の火災で基本となる考え方はどれか。",choices:["物質の性質に応じて消火方法を選ぶ","必ず水を使う","必ず泡を使う","自然鎮火を待つ"],answer:0,explanation:"危険物の性質に応じた消火方法を選びます。",detail:"第2類でも物質によって水の使用可否などが異なります。分類名だけで一律に判断せず、各物質の性質を確認します。"},
+ {id:"010",category:"性質",tag:"金属粉",question:"金属粉は粒子が細かくなると一般にどうなるか。",choices:["燃えやすくなる","燃えなくなる","液体になる","危険性がなくなる"],answer:0,explanation:"表面積が増えるため燃焼しやすくなります。",detail:"粉末化すると単位質量あたりの表面積が増え、酸素との接触面積が大きくなります。そのため塊より燃焼しやすくなります。"}
+];
+
+const STORAGE_KEY = "otsu2_review_ids_v16";
+const REVIEW_CORRECT_KEY = "otsu2_review_correct_ids_v18";
+
+const el = id => document.getElementById(id);
+const screens = ["startScreen","quizScreen","resultScreen","reviewScreen"];
+
+let quiz = [];
+let currentIndex = 0;
+let currentResult = null;
+let mode = "normal";
+
+function showScreen(id){
+ screens.forEach(screenId => el(screenId).classList.toggle("hidden", screenId !== id));
+}
+
+function loadReviewIds(){
+ try{
+  const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  return Array.isArray(raw) ? [...new Set(raw.filter(v => typeof v === "string"))] : [];
+ }catch{
+  return [];
+ }
+}
+
+function saveReviewIds(ids){
+ localStorage.setItem(STORAGE_KEY, JSON.stringify([...new Set(ids)]));
+}
+
+function loadReviewCorrectIds(){
+ try{
+  const raw = JSON.parse(localStorage.getItem(REVIEW_CORRECT_KEY) || "[]");
+  return Array.isArray(raw) ? [...new Set(raw.filter(v => typeof v === "string"))] : [];
+ }catch{
+  return [];
+ }
+}
+
+function saveReviewCorrectIds(ids){
+ localStorage.setItem(REVIEW_CORRECT_KEY, JSON.stringify([...new Set(ids)]));
+}
+
+function markReviewCorrect(id){
+ const ids = loadReviewCorrectIds();
+ if(!ids.includes(id)){
+  ids.push(id);
+  saveReviewCorrectIds(ids);
+ }
+}
+
+function clearReviewCorrect(id){
+ const ids = loadReviewCorrectIds().filter(savedId => savedId !== id);
+ saveReviewCorrectIds(ids);
+}
+
+function addReview(id){
+ const ids = loadReviewIds();
+ clearReviewCorrect(id);
+
+ if(ids.includes(id)) return false;
+
+ ids.push(id);
+ saveReviewIds(ids);
+ return true;
+}
+
+function startQuiz(){
+ mode = "normal";
+ const requested = Number(el("questionCount").value);
+ quiz = [...questions].sort(() => Math.random() - 0.5).slice(0, Math.min(requested, questions.length));
+ currentIndex = 0;
+ showScreen("quizScreen");
+ showQuestion();
+}
+
+function showQuestion(){
+ const q = quiz[currentIndex];
+ el("progress").textContent = `${mode === "review" ? "復習 " : ""}第${currentIndex + 1}問 / ${quiz.length}問`;
+ el("questionText").textContent = q.question;
+ el("choices").innerHTML = "";
+ q.choices.forEach((choice, i) => {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "choice";
+  button.textContent = `${i + 1}. ${choice}`;
+  button.addEventListener("click", () => answer(i));
+  el("choices").appendChild(button);
+ });
+}
+
+function answer(selected){
+ const q = quiz[currentIndex];
+ currentResult = {q, selected};
+
+ if(mode === "review" && selected === q.answer){
+  markReviewCorrect(q.id);
+ }else if(selected !== q.answer){
+  addReview(q.id);
+ }
+
+ el("resultTitle").textContent =
+  selected === q.answer ? "⭕ 正解" :
+  selected === null ? "確認しましょう" : "❌ 不正解";
+
+ el("answerInfo").innerHTML =
+  `正しい答え：${q.answer + 1}. ${q.choices[q.answer]}<br>` +
+  (selected === null ? "今回の回答：わからない" :
+   `あなたの回答：${selected + 1}. ${q.choices[selected]}`);
+
+ el("explanation").textContent = `解説：${q.explanation}`;
+ el("detailBox").textContent = q.detail;
+ el("detailBox").classList.add("hidden");
+ el("categoryInfo").textContent = `分野：${q.category}`;
+ el("bookmarkStatus").textContent =
+  selected !== q.answer ? "復習候補に自動登録しました。" : "";
+
+ showScreen("resultScreen");
+}
+
+function nextQuestion(){
+ if(currentIndex < quiz.length - 1){
+  currentIndex++;
+  showScreen("quizScreen");
+  showQuestion();
+ }else{
+  alert(mode === "review" ? "復習を終了しました" : "終了しました");
+  showScreen("startScreen");
+ }
+}
+
+function bookmarkCurrent(){
+ if(!currentResult) return;
+ const added = addReview(currentResult.q.id);
+ el("bookmarkStatus").textContent =
+  added ? "復習候補に保存しました。" : "すでに復習候補にあります。";
+}
+
+function openReview(){
+ showScreen("reviewScreen");
+ el("reviewStatus").textContent = "";
+ renderReviewList();
+}
+
+function renderReviewList(){
+ const ids = loadReviewIds();
+ const valid = ids.map(id => questions.find(q => q.id === id)).filter(Boolean);
+ const correctCount = valid.filter(q => loadReviewCorrectIds().includes(q.id)).length;
+ el("reviewCount").textContent =
+  `現在の復習候補：${valid.length}問（復習で正解・チェックOFF：${correctCount}問）`;
+ el("reviewList").innerHTML = "";
+
+ if(valid.length === 0){
+  el("reviewList").innerHTML = "<p>復習候補はありません。</p>";
+  return;
+ }
+
+ valid.forEach(q => {
+  const row = document.createElement("div");
+  row.className = "review-item";
+  const label = document.createElement("label");
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.className = "reviewCheck";
+  box.value = q.id;
+  box.checked = !loadReviewCorrectIds().includes(q.id);
+  label.append(box, document.createTextNode(` ${q.tag}（${q.category}）`));
+  row.appendChild(label);
+  el("reviewList").appendChild(row);
+ });
+}
+
+function checkedReviewIds(){
+ return [...document.querySelectorAll(".reviewCheck:checked")].map(x => x.value);
+}
+
+function startReview(){
+ const ids = checkedReviewIds();
+ if(ids.length === 0){
+  el("reviewStatus").textContent = "復習する問題を選択してください。";
+  return;
+ }
+ mode = "review";
+ quiz = ids.map(id => questions.find(q => q.id === id)).filter(Boolean);
+ currentIndex = 0;
+ showScreen("quizScreen");
+ showQuestion();
+}
+
+function deleteSelected(){
+ const selected = checkedReviewIds();
+ const status = el("reviewStatus");
+
+ if(selected.length === 0){
+  status.textContent = "削除する問題を選択してください。";
+  return;
+ }
+
+ const before = loadReviewIds();
+ const remaining = before.filter(id => !selected.includes(id));
+ saveReviewIds(remaining);
+ saveReviewCorrectIds(
+  loadReviewCorrectIds().filter(id => !selected.includes(id))
+ );
+ renderReviewList();
+
+ status.textContent =
+  `選択削除を実行：${before.length}問 → ${remaining.length}問`;
+}
+
+function deleteAll(){
+ const before = loadReviewIds();
+ const status = el("reviewStatus");
+
+ if(before.length === 0){
+  status.textContent = "削除する復習候補がありません。";
+  return;
+ }
+
+ localStorage.removeItem(STORAGE_KEY);
+ localStorage.removeItem(REVIEW_CORRECT_KEY);
+ renderReviewList();
+
+ status.textContent =
+  `すべて削除を実行：${before.length}問 → 0問`;
+}
+
+el("startButton").addEventListener("click", startQuiz);
+el("openReviewButton").addEventListener("click", openReview);
+el("unknownButton").addEventListener("click", () => answer(null));
+el("quitButton").addEventListener("click", () => showScreen("startScreen"));
+el("detailButton").addEventListener("click", () => el("detailBox").classList.remove("hidden"));
+el("bookmarkButton").addEventListener("click", bookmarkCurrent);
+el("nextButton").addEventListener("click", nextQuestion);
+el("selectAllButton").addEventListener("click", () => document.querySelectorAll(".reviewCheck").forEach(x => x.checked = true));
+el("clearAllChecksButton").addEventListener("click", () => document.querySelectorAll(".reviewCheck").forEach(x => x.checked = false));
+el("startReviewButton").addEventListener("click", startReview);
+el("reviewTopButton").addEventListener("click", () => showScreen("startScreen"));
+
+document.addEventListener("keydown", event => {
+ const focused = document.activeElement?.tagName;
+ if(["BUTTON","SELECT","INPUT"].includes(focused)) return;
+
+ if(!el("startScreen").classList.contains("hidden") && event.key === "Enter"){
+  event.preventDefault();
+  startQuiz();
+  return;
+ }
+ if(!el("quizScreen").classList.contains("hidden")){
+  if(["1","2","3","4"].includes(event.key)) answer(Number(event.key) - 1);
+  else if(event.key.toLowerCase() === "w") answer(null);
+  return;
+ }
+ if(!el("resultScreen").classList.contains("hidden")){
+  if(event.key === "Enter"){ event.preventDefault(); nextQuestion(); }
+  else if(event.key.toLowerCase() === "r") bookmarkCurrent();
+  else if(event.key.toLowerCase() === "e") el("detailBox").classList.remove("hidden");
+ }
+});
+</script>
+</body>
+</html>
