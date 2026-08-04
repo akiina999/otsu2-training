@@ -20,6 +20,22 @@ function markReviewCorrect(id){const ids=loadReviewCorrectIds();if(!ids.includes
 function clearReviewCorrect(id){saveReviewCorrectIds(loadReviewCorrectIds().filter(savedId=>savedId!==id));}
 function addReview(id){const ids=loadReviewIds();clearReviewCorrect(id);if(ids.includes(id))return false;ids.push(id);saveReviewIds(ids);return true;}
 
+function validateQuestionBank(){
+ const ids=new Set();
+ const errors=[];
+ QUESTION_BANK.forEach((q,index)=>{
+  if(!q||typeof q!=="object")errors.push(`${index+1}番目の問題データが不正です`);
+  else{
+   if(!q.id||ids.has(q.id))errors.push(`問題IDが未設定または重複しています: ${q.id||index+1}`);
+   ids.add(q.id);
+   if(!Array.isArray(q.choices)||q.choices.length!==5)errors.push(`${q.id}: 選択肢が5個ではありません`);
+   if(!Number.isInteger(q.answer)||q.answer<0||q.answer>4)errors.push(`${q.id}: 正解番号が不正です`);
+  }
+ });
+ if(errors.length)console.error("問題データ検証エラー",errors);
+}
+validateQuestionBank();
+
 function startQuiz(){
  mode="normal";
  const requested=Number(el("questionCount").value);
@@ -87,16 +103,27 @@ function renderReviewList(){
  });
 }
 function checkedReviewIds(){return [...document.querySelectorAll(".reviewCheck:checked")].map(x=>x.value);}
+function allVisibleReviewIds(){return [...document.querySelectorAll(".reviewCheck")].map(x=>x.value);}
 function startReview(){
  const ids=checkedReviewIds();
  if(ids.length===0){el("reviewStatus").textContent="復習する問題を選択してください。";return;}
  mode="review";quiz=ids.map(id=>QUESTION_BANK.find(q=>q.id===id)).filter(Boolean);currentIndex=0;showScreen("quizScreen");showQuestion();
 }
-function deleteSelected(){
- const selected=checkedReviewIds();const status=el("reviewStatus");
- if(selected.length===0){status.textContent="削除する問題を選択してください。";return;}
- const before=loadReviewIds();const remaining=before.filter(id=>!selected.includes(id));
- saveReviewIds(remaining);saveReviewCorrectIds(loadReviewCorrectIds().filter(id=>!selected.includes(id)));renderReviewList();status.textContent=`選択削除を実行：${before.length}問 → ${remaining.length}問`;
+function removeReviewIds(targetIds,messageLabel){
+ const status=el("reviewStatus");
+ if(targetIds.length===0){status.textContent=`${messageLabel}する問題がありません。`;return;}
+ const before=loadReviewIds();
+ const remaining=before.filter(id=>!targetIds.includes(id));
+ saveReviewIds(remaining);
+ saveReviewCorrectIds(loadReviewCorrectIds().filter(id=>!targetIds.includes(id)));
+ renderReviewList();
+ status.textContent=`${messageLabel}：${before.length}問 → ${remaining.length}問`;
+}
+function deleteSelected(){removeReviewIds(checkedReviewIds(),"選択削除を実行");}
+function deleteUnchecked(){
+ const checked=new Set(checkedReviewIds());
+ const unchecked=allVisibleReviewIds().filter(id=>!checked.has(id));
+ removeReviewIds(unchecked,"非選択削除を実行");
 }
 function deleteAll(){
  const before=loadReviewIds();const status=el("reviewStatus");
