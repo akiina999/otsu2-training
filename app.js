@@ -19,6 +19,12 @@ function saveReviewCorrectIds(ids){saveIds(REVIEW_CORRECT_KEY,ids);}
 function markReviewCorrect(id){const ids=loadReviewCorrectIds();if(!ids.includes(id)){ids.push(id);saveReviewCorrectIds(ids);}}
 function clearReviewCorrect(id){saveReviewCorrectIds(loadReviewCorrectIds().filter(savedId=>savedId!==id));}
 function addReview(id){const ids=loadReviewIds();clearReviewCorrect(id);if(ids.includes(id))return false;ids.push(id);saveReviewIds(ids);return true;}
+function getSection(q){
+ if(q.section)return q.section;
+ if(q.category==="法令基礎"||q.category==="指定数量")return "法令";
+ if(q.category==="基礎物理"||q.category==="基礎化学"||q.category==="基礎物理・化学")return "基礎物理・化学";
+ return "乙2の性質・消火";
+}
 
 function validateQuestionBank(){
  const ids=new Set();
@@ -48,6 +54,7 @@ function startQuiz(){
 function showQuestion(){
  const q=quiz[currentIndex];
  el("progress").textContent=`${mode==="review"?"復習 ":""}第${currentIndex+1}問 / ${quiz.length}問`;
+ el("sectionInfo").textContent=`区分：${getSection(q)}`;
  el("questionText").textContent=q.question;
  el("choices").innerHTML="";
  q.choices.forEach((choice,i)=>{
@@ -69,23 +76,14 @@ function answer(selected){
  el("answerInfo").innerHTML=`正しい答え：${q.answer+1}. ${q.choices[q.answer]}<br>`+(selected===null?"今回の回答：わからない":`あなたの回答：${selected+1}. ${q.choices[selected]}`);
  el("explanation").textContent=`解説：${q.explanation}`;
  el("detailBox").textContent=q.detail;
- el("categoryInfo").textContent=`分野：${q.category} / 重要度：${q.importance}`;
+ el("categoryInfo").textContent=`区分：${getSection(q)} / 分野：${q.category} / 重要度：${q.importance}`;
  el("sourceInfo").textContent=`参考：${q.source}`;
  el("bookmarkStatus").textContent=selected!==q.answer?"復習候補に自動登録しました。":"";
  showScreen("resultScreen");
 }
 
-function nextQuestion(){
- if(currentIndex<quiz.length-1){currentIndex++;showScreen("quizScreen");showQuestion();}
- else showScreen("startScreen");
-}
-
-function bookmarkCurrent(){
- if(!currentResult)return;
- const added=addReview(currentResult.q.id);
- el("bookmarkStatus").textContent=added?"復習候補に保存しました。":"すでに復習候補にあります。";
-}
-
+function nextQuestion(){if(currentIndex<quiz.length-1){currentIndex++;showScreen("quizScreen");showQuestion();}else showScreen("startScreen");}
+function bookmarkCurrent(){if(!currentResult)return;const added=addReview(currentResult.q.id);el("bookmarkStatus").textContent=added?"復習候補に保存しました。":"すでに復習候補にあります。";}
 function openReview(){showScreen("reviewScreen");el("reviewStatus").textContent="";renderReviewList();}
 function renderReviewList(){
  const ids=loadReviewIds();
@@ -99,37 +97,16 @@ function renderReviewList(){
   const row=document.createElement("div");row.className="review-item";
   const label=document.createElement("label");
   const box=document.createElement("input");box.type="checkbox";box.className="reviewCheck";box.value=q.id;box.checked=!correctIds.includes(q.id);
-  label.append(box,document.createTextNode(` ${q.tag}（${q.category}）`));row.appendChild(label);el("reviewList").appendChild(row);
+  label.append(box,document.createTextNode(` [${getSection(q)}] ${q.tag}（${q.category}）`));row.appendChild(label);el("reviewList").appendChild(row);
  });
 }
 function checkedReviewIds(){return [...document.querySelectorAll(".reviewCheck:checked")].map(x=>x.value);}
 function allVisibleReviewIds(){return [...document.querySelectorAll(".reviewCheck")].map(x=>x.value);}
-function startReview(){
- const ids=checkedReviewIds();
- if(ids.length===0){el("reviewStatus").textContent="復習する問題を選択してください。";return;}
- mode="review";quiz=ids.map(id=>QUESTION_BANK.find(q=>q.id===id)).filter(Boolean);currentIndex=0;showScreen("quizScreen");showQuestion();
-}
-function removeReviewIds(targetIds,messageLabel){
- const status=el("reviewStatus");
- if(targetIds.length===0){status.textContent=`${messageLabel}する問題がありません。`;return;}
- const before=loadReviewIds();
- const remaining=before.filter(id=>!targetIds.includes(id));
- saveReviewIds(remaining);
- saveReviewCorrectIds(loadReviewCorrectIds().filter(id=>!targetIds.includes(id)));
- renderReviewList();
- status.textContent=`${messageLabel}：${before.length}問 → ${remaining.length}問`;
-}
+function startReview(){const ids=checkedReviewIds();if(ids.length===0){el("reviewStatus").textContent="復習する問題を選択してください。";return;}mode="review";quiz=ids.map(id=>QUESTION_BANK.find(q=>q.id===id)).filter(Boolean);currentIndex=0;showScreen("quizScreen");showQuestion();}
+function removeReviewIds(targetIds,messageLabel){const status=el("reviewStatus");if(targetIds.length===0){status.textContent=`${messageLabel}する問題がありません。`;return;}const before=loadReviewIds();const remaining=before.filter(id=>!targetIds.includes(id));saveReviewIds(remaining);saveReviewCorrectIds(loadReviewCorrectIds().filter(id=>!targetIds.includes(id)));renderReviewList();status.textContent=`${messageLabel}：${before.length}問 → ${remaining.length}問`;}
 function deleteSelected(){removeReviewIds(checkedReviewIds(),"選択削除を実行");}
-function deleteUnchecked(){
- const checked=new Set(checkedReviewIds());
- const unchecked=allVisibleReviewIds().filter(id=>!checked.has(id));
- removeReviewIds(unchecked,"非選択削除を実行");
-}
-function deleteAll(){
- const before=loadReviewIds();const status=el("reviewStatus");
- if(before.length===0){status.textContent="削除する復習候補がありません。";return;}
- localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(REVIEW_CORRECT_KEY);renderReviewList();status.textContent=`すべて削除を実行：${before.length}問 → 0問`;
-}
+function deleteUnchecked(){const checked=new Set(checkedReviewIds());const unchecked=allVisibleReviewIds().filter(id=>!checked.has(id));removeReviewIds(unchecked,"非選択削除を実行");}
+function deleteAll(){const before=loadReviewIds();const status=el("reviewStatus");if(before.length===0){status.textContent="削除する復習候補がありません。";return;}localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(REVIEW_CORRECT_KEY);renderReviewList();status.textContent=`すべて削除を実行：${before.length}問 → 0問`;}
 
 el("startButton").addEventListener("click",startQuiz);
 el("openReviewButton").addEventListener("click",openReview);
