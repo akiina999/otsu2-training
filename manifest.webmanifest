@@ -1,0 +1,19 @@
+{
+  "name": "危険物乙2トレーニング",
+  "short_name": "乙2トレーニング",
+  "description": "危険物取扱者 乙種第2類の弱点発見型学習アプリ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f9",
+  "theme_color": "#243b53",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
