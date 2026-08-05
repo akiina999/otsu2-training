@@ -9,7 +9,10 @@ let currentIndex=0;
 let currentResult=null;
 let mode="normal";
 
-function showScreen(id){screens.forEach(screenId=>el(screenId).classList.toggle("hidden",screenId!==id));}
+function showScreen(id){
+ screens.forEach(screenId=>el(screenId).classList.toggle("hidden",screenId!==id));
+ requestAnimationFrame(()=>window.scrollTo(0,0));
+}
 function loadIds(key){try{const raw=JSON.parse(localStorage.getItem(key)||"[]");return Array.isArray(raw)?[...new Set(raw.filter(v=>typeof v==="string"))]:[];}catch{return [];}}
 function saveIds(key,ids){localStorage.setItem(key,JSON.stringify([...new Set(ids)]));}
 function loadReviewIds(){return loadIds(STORAGE_KEY);}
@@ -25,6 +28,18 @@ function getSection(q){
  if(q.category==="基礎物理"||q.category==="基礎化学"||q.category==="基礎物理・化学")return "基礎物理・化学";
  return "乙2の性質・消火";
 }
+function renderOptionalImage(containerId,src,alt){
+ const container=el(containerId);
+ container.innerHTML="";
+ if(typeof src!=="string"||src.trim()===""){container.classList.add("hidden");return;}
+ const img=document.createElement("img");
+ img.src=src;
+ img.alt=typeof alt==="string"&&alt.trim()?alt:"問題の参考図";
+ img.loading="eager";
+ img.addEventListener("error",()=>{container.innerHTML="";container.classList.add("hidden");});
+ container.appendChild(img);
+ container.classList.remove("hidden");
+}
 
 function validateQuestionBank(){
  const ids=new Set();
@@ -36,11 +51,15 @@ function validateQuestionBank(){
    ids.add(q.id);
    if(!Array.isArray(q.choices)||q.choices.length!==5)errors.push(`${q.id}: 選択肢が5個ではありません`);
    if(!Number.isInteger(q.answer)||q.answer<0||q.answer>4)errors.push(`${q.id}: 正解番号が不正です`);
+   ["image","imageAlt","detailImage","detailImageAlt"].forEach(key=>{
+    if(q[key]!==undefined&&typeof q[key]!=="string")errors.push(`${q.id}: ${key}は文字列で指定してください`);
+   });
   }
  });
  if(errors.length)console.error("問題データ検証エラー",errors);
 }
 validateQuestionBank();
+el("questionBankCount").textContent=`収録問題数：${QUESTION_BANK.length}問`;
 
 function startQuiz(){
  mode="normal";
@@ -56,6 +75,7 @@ function showQuestion(){
  el("progress").textContent=`${mode==="review"?"復習 ":""}第${currentIndex+1}問 / ${quiz.length}問`;
  el("sectionInfo").textContent=`区分：${getSection(q)}`;
  el("questionText").textContent=q.question;
+ renderOptionalImage("questionMedia",q.image,q.imageAlt);
  el("choices").innerHTML="";
  q.choices.forEach((choice,i)=>{
   const button=document.createElement("button");
@@ -76,6 +96,7 @@ function answer(selected){
  el("answerInfo").innerHTML=`正しい答え：${q.answer+1}. ${q.choices[q.answer]}<br>`+(selected===null?"今回の回答：わからない":`あなたの回答：${selected+1}. ${q.choices[selected]}`);
  el("explanation").textContent=`解説：${q.explanation}`;
  el("detailBox").textContent=q.detail;
+ renderOptionalImage("detailMedia",q.detailImage,q.detailImageAlt);
  el("categoryInfo").textContent=`区分：${getSection(q)} / 分野：${q.category} / 重要度：${q.importance}`;
  el("sourceInfo").textContent=`参考：${q.source}`;
  el("bookmarkStatus").textContent=selected!==q.answer?"復習候補に自動登録しました。":"";
