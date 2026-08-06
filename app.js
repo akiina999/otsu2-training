@@ -3,12 +3,16 @@ const QUESTION_BANK=window.QUESTION_BANK||[];
 const STORAGE_KEY="otsu2_review_ids_v11";
 const REVIEW_CORRECT_KEY="otsu2_review_correct_ids_v11";
 const el=id=>document.getElementById(id);
-const screens=["startScreen","quizScreen","resultScreen","reviewScreen"];
+const screens=["startScreen","quizScreen","speedFeedbackScreen","resultScreen","reviewScreen"];
 let quiz=[];
 let currentIndex=0;
 let currentResult=null;
 let mode="normal";
+let learningMode="normal";
+let inputLocked=false;
+let speedTimer=null;
 
+function clearSpeedTimer(){if(speedTimer!==null){clearTimeout(speedTimer);speedTimer=null;}}
 function showScreen(id){
  screens.forEach(screenId=>el(screenId).classList.toggle("hidden",screenId!==id));
  requestAnimationFrame(()=>window.scrollTo(0,0));
@@ -62,15 +66,20 @@ validateQuestionBank();
 el("questionBankCount").textContent=`収録問題数：${QUESTION_BANK.length}問`;
 
 function startQuiz(){
+ clearSpeedTimer();
  mode="normal";
+ learningMode=document.querySelector('input[name="learningMode"]:checked')?.value==="speed"?"speed":"normal";
  const requested=Number(el("questionCount").value);
  quiz=[...QUESTION_BANK].sort(()=>Math.random()-.5).slice(0,Math.min(requested,QUESTION_BANK.length));
  currentIndex=0;
+ currentResult=null;
  showScreen("quizScreen");
  showQuestion();
 }
 
 function showQuestion(){
+ inputLocked=false;
+ currentResult=null;
  const q=quiz[currentIndex];
  el("progress").textContent=`${mode==="review"?"復習 ":""}第${currentIndex+1}問 / ${quiz.length}問`;
  el("sectionInfo").textContent=`区分：${getSection(q)}`;
@@ -87,11 +96,7 @@ function showQuestion(){
  });
 }
 
-function answer(selected){
- const q=quiz[currentIndex];
- currentResult={q,selected};
- if(mode==="review"&&selected===q.answer)markReviewCorrect(q.id);
- else if(selected!==q.answer)addReview(q.id);
+function showAnswerResult(q,selected){
  el("resultTitle").textContent=selected===q.answer?"⭕ 正解":selected===null?"確認しましょう":"❌ 不正解";
  el("answerInfo").innerHTML=`正しい答え：${q.answer+1}. ${q.choices[q.answer]}<br>`+(selected===null?"今回の回答：わからない":`あなたの回答：${selected+1}. ${q.choices[selected]}`);
  el("explanation").textContent=`解説：${q.explanation}`;
@@ -103,9 +108,31 @@ function answer(selected){
  showScreen("resultScreen");
 }
 
-function nextQuestion(){if(currentIndex<quiz.length-1){currentIndex++;showScreen("quizScreen");showQuestion();}else showScreen("startScreen");}
+function answer(selected){
+ if(inputLocked)return;
+ inputLocked=true;
+ const q=quiz[currentIndex];
+ currentResult={q,selected};
+ const isCorrect=selected===q.answer;
+ if(mode==="review"&&isCorrect)markReviewCorrect(q.id);
+ else if(!isCorrect)addReview(q.id);
+ if(mode==="normal"&&learningMode==="speed"&&isCorrect){
+  showScreen("speedFeedbackScreen");
+  clearSpeedTimer();
+  speedTimer=setTimeout(()=>{speedTimer=null;nextQuestion();},650);
+  return;
+ }
+ showAnswerResult(q,selected);
+}
+
+function nextQuestion(){
+ clearSpeedTimer();
+ if(currentIndex<quiz.length-1){currentIndex++;showScreen("quizScreen");showQuestion();}
+ else{inputLocked=false;currentResult=null;showScreen("startScreen");}
+}
+function quitToTop(){clearSpeedTimer();inputLocked=false;currentResult=null;showScreen("startScreen");}
 function bookmarkCurrent(){if(!currentResult)return;const added=addReview(currentResult.q.id);el("bookmarkStatus").textContent=added?"復習候補に保存しました。":"すでに復習候補にあります。";}
-function openReview(){showScreen("reviewScreen");el("reviewStatus").textContent="";renderReviewList();}
+function openReview(){clearSpeedTimer();showScreen("reviewScreen");el("reviewStatus").textContent="";renderReviewList();}
 function renderReviewList(){
  const ids=loadReviewIds();
  const correctIds=loadReviewCorrectIds();
@@ -123,7 +150,7 @@ function renderReviewList(){
 }
 function checkedReviewIds(){return [...document.querySelectorAll(".reviewCheck:checked")].map(x=>x.value);}
 function allVisibleReviewIds(){return [...document.querySelectorAll(".reviewCheck")].map(x=>x.value);}
-function startReview(){const ids=checkedReviewIds();if(ids.length===0){el("reviewStatus").textContent="復習する問題を選択してください。";return;}mode="review";quiz=ids.map(id=>QUESTION_BANK.find(q=>q.id===id)).filter(Boolean);currentIndex=0;showScreen("quizScreen");showQuestion();}
+function startReview(){const ids=checkedReviewIds();if(ids.length===0){el("reviewStatus").textContent="復習する問題を選択してください。";return;}clearSpeedTimer();mode="review";quiz=ids.map(id=>QUESTION_BANK.find(q=>q.id===id)).filter(Boolean);currentIndex=0;showScreen("quizScreen");showQuestion();}
 function removeReviewIds(targetIds,messageLabel){const status=el("reviewStatus");if(targetIds.length===0){status.textContent=`${messageLabel}する問題がありません。`;return;}const before=loadReviewIds();const remaining=before.filter(id=>!targetIds.includes(id));saveReviewIds(remaining);saveReviewCorrectIds(loadReviewCorrectIds().filter(id=>!targetIds.includes(id)));renderReviewList();status.textContent=`${messageLabel}：${before.length}問 → ${remaining.length}問`;}
 function deleteSelected(){removeReviewIds(checkedReviewIds(),"選択削除を実行");}
 function deleteUnchecked(){const checked=new Set(checkedReviewIds());const unchecked=allVisibleReviewIds().filter(id=>!checked.has(id));removeReviewIds(unchecked,"非選択削除を実行");}
@@ -132,13 +159,13 @@ function deleteAll(){const before=loadReviewIds();const status=el("reviewStatus"
 el("startButton").addEventListener("click",startQuiz);
 el("openReviewButton").addEventListener("click",openReview);
 el("unknownButton").addEventListener("click",()=>answer(null));
-el("quitButton").addEventListener("click",()=>showScreen("startScreen"));
+el("quitButton").addEventListener("click",quitToTop);
 el("bookmarkButton").addEventListener("click",bookmarkCurrent);
 el("nextButton").addEventListener("click",nextQuestion);
 el("selectAllButton").addEventListener("click",()=>document.querySelectorAll(".reviewCheck").forEach(x=>x.checked=true));
 el("clearAllChecksButton").addEventListener("click",()=>document.querySelectorAll(".reviewCheck").forEach(x=>x.checked=false));
 el("startReviewButton").addEventListener("click",startReview);
-el("reviewTopButton").addEventListener("click",()=>showScreen("startScreen"));
+el("reviewTopButton").addEventListener("click",quitToTop);
 
 document.addEventListener("keydown",event=>{
  const focused=document.activeElement?.tagName;
