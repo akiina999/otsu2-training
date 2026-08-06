@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
+  <title id="title">燃焼の三要素</title>
+  <desc id="desc">三角形の各頂点に可燃物、酸素供給源、点火源を配置した模式図</desc>
+  <rect width="640" height="420" rx="24" fill="#f8fafc"/>
+  <path d="M320 70 100 340h440Z" fill="#fff" stroke="#334e68" stroke-width="8"/>
+  <circle cx="320" cy="82" r="58" fill="#fff4d6" stroke="#b7791f" stroke-width="5"/>
+  <circle cx="112" cy="332" r="58" fill="#e6fffa" stroke="#2c7a7b" stroke-width="5"/>
+  <circle cx="528" cy="332" r="58" fill="#ebf8ff" stroke="#2b6cb0" stroke-width="5"/>
+  <text x="320" y="75" text-anchor="middle" font-size="25" font-family="sans-serif" font-weight="700" fill="#5f370e">点火源</text>
+  <text x="320" y="106" text-anchor="middle" font-size="18" font-family="sans-serif" fill="#5f370e">熱・火花</text>
+  <text x="112" y="326" text-anchor="middle" font-size="24" font-family="sans-serif" font-weight="700" fill="#234e52">可燃物</text>
+  <text x="112" y="356" text-anchor="middle" font-size="18" font-family="sans-serif" fill="#234e52">燃える物質</text>
+  <text x="528" y="326" text-anchor="middle" font-size="22" font-family="sans-serif" font-weight="700" fill="#2a4365">酸素供給源</text>
+  <text x="528" y="356" text-anchor="middle" font-size="18" font-family="sans-serif" fill="#2a4365">空気など</text>
+  <text x="320" y="245" text-anchor="middle" font-size="34" font-family="sans-serif" font-weight="700" fill="#243b53">燃焼</text>
+  <text x="320" y="282" text-anchor="middle" font-size="19" font-family="sans-serif" fill="#486581">3要素がそろうと継続</text>
+</svg>
