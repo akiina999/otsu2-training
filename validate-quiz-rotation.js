@@ -3,8 +3,8 @@ const assert=require("assert");
 const fs=require("fs");
 const vm=require("vm");
 const elements=new Map();
-function element(id){if(!elements.has(id))elements.set(id,{id,value:"10",textContent:"",innerHTML:"",classList:{toggle(){},add(){},remove(){}},append(){},appendChild(){},addEventListener(){},querySelectorAll(){return [];}});return elements.get(id);}
-const context={window:{QUESTION_BANK:[],scrollTo(){},requestAnimationFrame(fn){fn();}},document:{getElementById:element,querySelectorAll(){return [];},addEventListener(){}},localStorage:{getItem(){return null;},setItem(){},removeItem(){}},requestAnimationFrame(fn){fn();},console};
+function element(id){if(!elements.has(id))elements.set(id,{id,value:"10",textContent:"",innerHTML:"",classList:{toggle(){},add(){},remove(){}},append(){},appendChild(){},addEventListener(){},parentElement:{append(){}},querySelectorAll(){return [];}});return elements.get(id);}
+const context={window:{QUESTION_BANK:[],scrollTo(){},requestAnimationFrame(fn){fn();}},document:{getElementById:element,querySelectorAll(){return [];},createElement(){return element(`created-${elements.size}`);},addEventListener(){}},localStorage:{getItem(){return null;},setItem(){},removeItem(){}},requestAnimationFrame(fn){fn();},console};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync("app.js","utf8")+"\nglobalThis.__rotation=QuizRotation;",context,{filename:"app.js"});
 const {next}=context.__rotation;
