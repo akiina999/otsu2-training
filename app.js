@@ -3,6 +3,14 @@ const QUESTION_BANK=window.QUESTION_BANK||[];
 const STORAGE_KEY="otsu2_review_ids_v11";
 const REVIEW_CORRECT_KEY="otsu2_review_correct_ids_v11";
 const HISTORY_KEY="otsu2_answer_history_v1";
+const NORMAL_ROTATION_KEY="otsu2_normal_rotation_v1";
+const QuizRotation=window.QuizRotation||(function(){
+ function shuffle(items,random=Math.random){const result=[...items];for(let i=result.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[result[i],result[j]]=[result[j],result[i]];}return result;}
+ function valid(ids,validIds){const seen=new Set();return Array.isArray(ids)?ids.filter(id=>typeof id==="string"&&validIds.has(id)&&!seen.has(id)&&(seen.add(id),true)):[];}
+ function normalize(state,ids,random){const validIds=new Set(ids);if(!state||typeof state!=="object"||!Array.isArray(state.knownIds))return {remainingIds:shuffle(ids,random),knownIds:[...ids],cycle:1};const known=valid(state.knownIds,validIds),remaining=valid(state.remainingIds,validIds),remainingSet=new Set(remaining),newIds=ids.filter(id=>!known.includes(id)&&!remainingSet.has(id));return {remainingIds:[...remaining,...shuffle(newIds,random)],knownIds:[...ids],cycle:Number.isInteger(state.cycle)&&state.cycle>0?state.cycle:1};}
+ function next(state,ids,requested,random=Math.random){const uniqueIds=[...new Set(ids.filter(id=>typeof id==="string"))],resultState=normalize(state,uniqueIds,random),selected=[],count=Math.min(Math.max(0,Number(requested)||0),uniqueIds.length);while(selected.length<count){if(resultState.remainingIds.length===0){const selectedSet=new Set(selected),deferred=selected.filter(id=>uniqueIds.includes(id));resultState.remainingIds=[...shuffle(uniqueIds.filter(id=>!selectedSet.has(id)),random),...shuffle(deferred,random)];resultState.cycle++;}const id=resultState.remainingIds.shift();if(id!==undefined)selected.push(id);}return {selectedIds:selected,state:resultState};}
+ return {next};
+})();
 const el=id=>document.getElementById(id);
 const screens=["startScreen","quizScreen","resultScreen","reviewScreen"];
 let quiz=[];
@@ -159,10 +167,15 @@ validateQuestionBank();
 el("questionBankCount").textContent=`収録問題数：${QUESTION_BANK.length}問`;
 renderWeaknessSummary();
 
+function loadNormalRotation(){try{const state=JSON.parse(localStorage.getItem(NORMAL_ROTATION_KEY)||"null");return state&&typeof state==="object"?state:null;}catch{return null;}}
 function startQuiz(){
  mode="normal";
  const requested=Number(el("questionCount").value);
- quiz=[...QUESTION_BANK].sort(()=>Math.random()-.5).slice(0,Math.min(requested,QUESTION_BANK.length));
+ const ids=QUESTION_BANK.map(q=>q.id);
+ const rotation=QuizRotation.next(loadNormalRotation(),ids,requested);
+ localStorage.setItem(NORMAL_ROTATION_KEY,JSON.stringify(rotation.state));
+ const byId=new Map(QUESTION_BANK.map(q=>[q.id,q]));
+ quiz=rotation.selectedIds.map(id=>byId.get(id)).filter(Boolean);
  currentIndex=0;showScreen("quizScreen");showQuestion();
 }
 function showQuestion(){
