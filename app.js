@@ -11,6 +11,11 @@ const QuizRotation=window.QuizRotation||(function(){
  function next(state,ids,requested,random=Math.random){const uniqueIds=[...new Set(ids.filter(id=>typeof id==="string"))],resultState=normalize(state,uniqueIds,random),selected=[],count=Math.min(Math.max(0,Number(requested)||0),uniqueIds.length);while(selected.length<count){if(resultState.remainingIds.length===0){const selectedSet=new Set(selected),deferred=selected.filter(id=>uniqueIds.includes(id));resultState.remainingIds=[...shuffle(uniqueIds.filter(id=>!selectedSet.has(id)),random),...shuffle(deferred,random)];resultState.cycle++;}const id=resultState.remainingIds.shift();if(id!==undefined)selected.push(id);}return {selectedIds:selected,state:resultState};}
  return {next};
 })();
+function selectRandomBySection(questions,section,maxQuestions=10,random=Math.random){
+ const selected=questions.filter(q=>q&&q.section===section);
+ for(let i=selected.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[selected[i],selected[j]]=[selected[j],selected[i]];}
+ return selected.slice(0,Math.max(0,Math.min(maxQuestions,selected.length)));
+}
 const el=id=>document.getElementById(id);
 const screens=["startScreen","quizScreen","resultScreen","reviewScreen"];
 let quiz=[];
@@ -178,10 +183,15 @@ function startQuiz(){
  quiz=rotation.selectedIds.map(id=>byId.get(id)).filter(Boolean);
  currentIndex=0;showScreen("quizScreen");showQuestion();
 }
+function startPhysicsChemistryQuiz(){
+ mode="physicsChemistry";
+ quiz=selectRandomBySection(QUESTION_BANK,"基礎物理・化学");
+ currentIndex=0;showScreen("quizScreen");showQuestion();
+}
 function showQuestion(){
  answerLocked=false;
  const q=quiz[currentIndex];
- const prefix=mode==="review"?"復習 ":mode==="weakness"?"苦手克服 ":"";
+ const prefix=mode==="review"?"復習 ":mode==="weakness"?"苦手克服 ":mode==="physicsChemistry"?"基礎物理・化学 ":"";
  el("progress").textContent=`${prefix}第${currentIndex+1}問 / ${quiz.length}問`;
  el("sectionInfo").textContent=`区分：${getSection(q)}`;
  el("questionText").textContent=q.question;
@@ -222,6 +232,12 @@ function deleteUnchecked(){const checked=new Set(checkedReviewIds());const unche
 function deleteAll(){const before=loadReviewIds();const status=el("reviewStatus");if(before.length===0){status.textContent="削除する復習候補がありません。";return;}localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(REVIEW_CORRECT_KEY);renderReviewList();status.textContent=`すべて削除を実行：${before.length}問 → 0問`;}
 
 el("startButton").addEventListener("click",startQuiz);
+const physicsChemistryButton=document.createElement("button");
+physicsChemistryButton.id="startPhysicsChemistryButton";
+physicsChemistryButton.type="button";
+physicsChemistryButton.textContent="基礎物理・化学 10問";
+physicsChemistryButton.addEventListener("click",startPhysicsChemistryQuiz);
+el("startButton").parentElement.append(physicsChemistryButton);
 el("openReviewButton").addEventListener("click",openReview);
 el("startWeaknessButton").addEventListener("click",startWeaknessQuiz);
 el("unknownButton").addEventListener("click",()=>answer(null));
