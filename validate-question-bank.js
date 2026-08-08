@@ -15,6 +15,8 @@ for(const file of files){
 }
 const bank=context.window.QUESTION_BANK;
 const errors=[];
+const validSections=new Set(["法令","基礎物理・化学","乙2の性質・消火"]);
+const legalSourcePattern=/(消防法.*(第\d+条|別表第一)|危険物の規制に関する政令.*(第\d+条|別表第三)|危険物の規制に関する規則.*第\d+条|消防試験研究センター.*試験科目及び問題数)/;
 if(bank.length!==150)errors.push(`Expected 150 questions, loaded ${bank.length}`);
 const ids=new Set();
 for(const [i,q] of bank.entries()){
@@ -25,7 +27,11 @@ for(const [i,q] of bank.entries()){
   if(!Array.isArray(q.choices)||q.choices.length!==5)errors.push(`${q.id}: choices must contain exactly 5 items`);
   if(!Number.isInteger(q.answer)||q.answer<0||q.answer>4)errors.push(`${q.id}: answer must be integer 0..4`);
   for(const key of ["section","category","question","explanation","detail","source"]){if(typeof q[key]!=="string"||!q[key].trim())errors.push(`${q.id}: missing ${key}`);}
+  if(!validSections.has(q.section))errors.push(`${q.id}: invalid section`);
+  if(q.section==="法令"&&typeof q.source==="string"&&!legalSourcePattern.test(q.source))errors.push(`${q.id}: legal source must name a specific article or table`);
+  if(Array.isArray(q.choices)&&new Set(q.choices).size!==q.choices.length)errors.push(`${q.id}: duplicate choices`);
+  if(Array.isArray(q.choices)&&Number.isInteger(q.answer)&&!q.choices[q.answer])errors.push(`${q.id}: answer does not select a choice`);
   for(const key of ["image","detailImage"]){if(q[key]){const full=path.join(root,q[key]);if(!fs.existsSync(full))errors.push(`${q.id}: missing referenced image ${q[key]}`);}}
 }
 if(errors.length){console.error(errors.join("\n"));process.exit(1);}
-console.log(`OK: ${bank.length} questions loaded from ${files.length} files; IDs unique; all 5-choice; answers valid; required fields and image references valid.`);
+console.log(`OK: ${bank.length} questions loaded from ${files.length} files; IDs unique; all 5-choice; answers valid; sections and legal sources valid; required fields and image references valid.`);
